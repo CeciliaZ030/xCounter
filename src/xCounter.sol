@@ -27,9 +27,13 @@ contract Counter is GwynethContract, DelegateContract {
     }
 
     function incrementByOn(uint256 chainId, uint256 amount) public returns (uint256) {
-        Counter counter = Counter(payable(EVM.onChain(address(this), chainId)));
-        this.number();
-        return counter.incrementBy(amount);
+        address target = EVM.onChain_(address(this), chainId);
+        // Explicitly construct the incrementBy call
+        (bool success, bytes memory data) = target.call(
+            abi.encodeWithSignature("incrementBy(uint256)", amount)
+        );
+        require(success, string(abi.encodePacked("Call failed: ", data)));
+        return abi.decode(data, (uint256));
     }
 
 }

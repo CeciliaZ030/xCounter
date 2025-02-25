@@ -13,12 +13,20 @@ library EVM {
     // Mock (Cecilia)
     uint constant sandboxOffset = 66;
 
-    function deriveAddress(uint chainId, address originalAddr) 
+    function mirrorAddress(uint chainId, address originalAddr) 
         internal 
         pure 
         returns (address) 
     {
         return address(uint160(uint256(keccak256(abi.encodePacked(chainId, originalAddr)))));
+    }
+
+    function inboxAddress(uint chainId, address originalAddr) 
+        internal 
+        pure 
+        returns (address) 
+    {
+        return address(uint160(uint256(keccak256(abi.encodePacked(originalAddr, chainId)))));
     }
 
     function xCallOnL1()
@@ -106,38 +114,46 @@ library EVM {
         view
         returns (address)
     {
-
-        if (block.chainid == 1 && chainID == 2) {
-            return extensionOracle;
-        } else {
-            return deriveAddress(chainID, addr);
+        // Don't do anything cuz we stay on L1
+        if (block.chainid == chainID) {
+            return addr;
         }
-
-        // (bool success, bytes memory result) = address(0x09).staticcall{gas: 1000}(new bytes(0));
-        // bool is_simulation = !success || result.length > 1;
-
-        // bool xCallOptionsAvailable = xCallOptions(chainID, false /* sandbox */);
-
-        // if (xCallOptionsAvailable || is_simulation) {
-        //     // return addr; 
-        //     // Mock (Cecilia)
-        //     if (chainID == chainId()) {
-        //         return addr; // Same chain, return original address
-        //     }
-        //     return deriveAddress(chainID, addr); // Different chain, return derived address
-        // } else {
-        //     return extensionOracle; // 0x1ADB9959EB142bE128E6dfEcc8D571f07cd66DeE
-        // }
+        // L1 -> L2
+        if (block.chainid == 31337 && chainID != 31337) {
+            return extensionOracle;
+        } 
+        // L2 -> L2, L2 -> L1
+        else {
+            return mirrorAddress(chainID, addr);
+        }
     }
 
     
+    function onChain_(address addr, uint chainID)
+        internal
+        view
+        returns (address)
+    {
+        (bool success, bytes memory result) = address(0x09).staticcall{gas: 1000}(new bytes(0));
+        bool is_simulation = !success || result.length > 1;
 
+        bool xCallOptionsAvailable = xCallOptions(chainID, false /* sandbox */);
+
+        if (xCallOptionsAvailable || is_simulation) {
+            // First time: return inbox address
+            return inboxAddress(chainID, addr);
+        } else {
+            // Second time: return extension oracle
+            return extensionOracle;
+        }
+    }
+    
     function onChainSandboxed(address addr, uint chainID)
         internal
         view
         returns (address)
     {
         // Mock (Cecilia): derive a different address to bypass derived contract
-        return deriveAddress(chainID + sandboxOffset, addr);
+        return mirrorAddress(chainID + sandboxOffset, addr);
     }
 }
