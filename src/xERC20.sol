@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./common/EVM.sol";
+import "./common/MockEVM.sol";
 import "./common/GwynethContract.sol";
 
 contract xERC20 is GwynethContract {
@@ -14,7 +14,8 @@ contract xERC20 is GwynethContract {
     using EVM for address;
 
     function ChainAddress(uint256 chainId, xERC20 contractAddr) internal view returns (xERC20) {
-        return xERC20(address(contractAddr).onChain(chainId)); // 本地地址
+        // return xERC20(address(contractAddr).onChain(chainId));
+        return xERC20(address(contractAddr).onChain_(chainId));
     }
 
     function on(uint256 chainId) internal view returns (xERC20) {
@@ -80,8 +81,8 @@ contract xERC20 is GwynethContract {
     }
 
     function xApprove(uint256 chain, address spender, uint256 value) public returns (uint256) {
-        EVM.xCallOptions(chain);
-        return this._approve(msg.sender, spender, value);
+        return on(chain)._approve(msg.sender, spender, value);
+        address mirror = EVM.onChain_(address(this), chain);
     }
 
     function transferFrom(address from, address to, uint256 value) public returns (uint256) {
